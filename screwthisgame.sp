@@ -10,7 +10,7 @@ HTTPClient httpClient;
 char sClientID[64];
 char sCommands[EFFECTS][64] = {"slow", "zoom", "disguising", "ubercharged", "taunt", "kritz", "dazed", "charging", "bonked", "critcola", "fire", "jarate", "bleeding", "marked", "parachute", "halloweenkart", "balloonhead", "meleeonly", "swimmingcurse", "lostfooting", "aircurrent", "rocketpack", "gas", "random"};
 int iConds[EFFECTS] = {0, 1, 2, 5, 7, 11, 15, 17, 14, 19, 22, 24, 25, 30, 80, 82, 84, 85, 86, 126, 127, 125, 123, 0};
-
+bool bPlaying = false;
 
 public Plugin myinfo =
 {
@@ -23,8 +23,20 @@ public Plugin myinfo =
 
 public void OnPluginStart()
 {
+	HookEvent("teamplay_round_start", OnRoundStart, EventHookMode_Post);
+	HookEvent("arena_win_panel", OnRoundWin);
 	httpClient = new HTTPClient("https://stg-api.monotron.me");
 	RegisterServer();
+}
+
+public Action OnRoundWin(Handle hEvent, char[] sName, bool dontBroadcast)
+{
+    bPlaying = false;
+}
+
+public void OnRoundStart(Event event, const char[] name, bool dontBroadcast)
+{
+	bPlaying = true;
 }
 
 public void RegisterServer()
@@ -64,7 +76,8 @@ public void GotEffect(HTTPResponse response, any value)
 		// Failed to retrieve todo
 		return;
 	}
-
+	if (!bPlaying) return;
+	
 	char effect[128];
 	char status[64];
 	JSONObject res = view_as<JSONObject>(response.Data);
