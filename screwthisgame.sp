@@ -41,31 +41,39 @@ public void OnRoundStart(Event event, const char[] name, bool dontBroadcast)
 
 public void RegisterServer()
 {
+	PrintToServer("Registering server");
 	httpClient.SetHeader("X-Client-Type", "Team_Fortress_2");
-	JSONObject body;
+	JSONObject body = new JSONObject();
+	JSONArray capabilities = new JSONArray();
+	for (int i = 0; i < EFFECTS-1; i++) capabilities.PushString(sCommands[i]);
+	body.Set("capabilities", capabilities);
 	httpClient.Post("client/register", body, ServerRegistered);
+	delete capabilities;
+	delete body;	
 }
 
 public void ServerRegistered(HTTPResponse response, any value)
 {
 	if (response.Status != HTTPStatus_OK) 
 	{
-		// Failed to retrieve todo
 		return;
 	}
-
+	char sres[512];
 	JSONObject res = view_as<JSONObject>(response.Data);
 	res.GetString("clientId", sClientID, sizeof(sClientID));
+	res.GetString("status", sres, sizeof(sres));
+	PrintToServer(sres);
+	PrintToServer(sClientID);
 
 	PrintToServer("Retrieved client ID with title '%s'", sClientID);
-	CreateTimer(10.0, Poll, _, TIMER_REPEAT);
-
+	CreateTimer(5.0, Poll, _, TIMER_REPEAT);
 }
 
 public Action Poll(Handle timer, any Pack)
 {
 	char sEndpoint[256];
-	Format(sEndpoint, sizeof(sEndpoint), "client/%s/effects");
+	Format(sEndpoint, sizeof(sEndpoint), "client/%s/effects", sClientID);
+	PrintToServer("Polling %s", sEndpoint);
 	httpClient.Get(sEndpoint, GotEffect);
 }
 
@@ -77,12 +85,20 @@ public void GotEffect(HTTPResponse response, any value)
 		return;
 	}
 	if (!bPlaying) return;
-	
+
 	char effect[128];
 	char status[64];
 	JSONObject res = view_as<JSONObject>(response.Data);
-	res.GetString("effect", effect, sizeof(effect));
-	res.GetString("status", status, sizeof(status));
+	JSONArray effects = view_as<JSONArray>(res.Get("effects"));
+	for (int i = 0; i < 1; i++) 
+	{
+        effects.GetString(i, effect, sizeof(effect));
+        // Get() creates a new handle, so delete it when we are done with it
+    }
+	PrintToServer(effect);
+
+	//res.GetString("effects", effect, sizeof(effect));
+	//res.GetString("status", status, sizeof(status));
 	if (!StrEqual(status, "SUCCESS", false)) return;
 
 	for (int i = 0; i < EFFECTS - 1; i++)
@@ -94,6 +110,8 @@ public void GotEffect(HTTPResponse response, any value)
 			CPrintToChatAll("[{yellow}STG{default}] The %s effect has been activated!", effect);
 		}
 	}
+	delete res;
+	delete effects;
 }
 
 public int GetRandomPlayer()
